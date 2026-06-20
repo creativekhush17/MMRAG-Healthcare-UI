@@ -1846,3 +1846,63 @@ summary strong {
   justify-content: space-between !important;
   width: 100%;
 }
+
+/* --- View Modes and Comparison Styles --- */
+
+.basic-view-container {
+  padding: 8px 0;
+  animation: fadeIn 0.3s ease;
+}
+
+.comparison-view-grid {
+  animation: fadeIn 0.3s ease;
+}
+
+.comparison-panel {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.02);
+}
+
+.comparison-panel:hover {
+  transform: translateY(-2px);
+}
+
+.comparison-panel.baseline {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.95), rgba(241, 245, 249, 0.8));
+  border-color: rgba(226, 232, 240, 0.8);
+}
+
+.comparison-panel.baseline:hover {
+  border-color: rgba(203, 213, 225, 1);
+  box-shadow: 0 12px 28px rgba(100, 116, 139, 0.08);
+}
+
+.comparison-panel.enhanced {
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.95), rgba(240, 253, 250, 0.45));
+  border-color: rgba(204, 251, 241, 0.8);
+}
+
+.comparison-panel.enhanced:hover {
+  border-color: rgba(153, 246, 228, 1);
+  box-shadow: 0 12px 28px rgba(13, 148, 136, 0.09);
+}
+
+.answer-header-actions .flex button {
+  outline: none;
+}
+
+.answer-header-actions .flex button:focus {
+  outline: none;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+

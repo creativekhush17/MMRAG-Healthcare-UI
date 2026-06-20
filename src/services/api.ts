@@ -370,3 +370,100 @@ function mockQueryResponse(req: QueryRequest, startTime: number): QueryResponse 
     }
   };
 }
+
+export interface QueryBaselineResponse {
+  answer: string;
+  latency_ms: number;
+}
+
+export async function queryBaselinePipeline(req: QueryRequest): Promise<QueryBaselineResponse> {
+  const startTime = performance.now();
+
+  if (isApiKeyConfigured && ai) {
+    try {
+      const contents: any[] = [];
+      if (req.include_images && req.image_b64) {
+        contents.push({
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: req.image_b64,
+          },
+        });
+      }
+
+      contents.push(
+        `You are an expert thoracic radiologist and clinical AI assistant analyzing a Chest X-Ray.
+         
+         User Query / Focus:
+         "${req.query}" (Query Domain: ${req.domain})
+
+         Instructions:
+         1. Provide a short, direct, and professional answer to the user's query.
+         2. Do NOT use any external RAG context, citations, or references.
+         3. Do NOT provide a confidence score, clinical notes, or insights list.
+         4. Keep the answer concise (2-4 sentences max).`
+      );
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents,
+      });
+
+      const endTime = performance.now();
+      const latency_ms = Math.round(endTime - startTime);
+      return {
+        answer: response.text || "No report generated.",
+        latency_ms,
+      };
+    } catch (err: any) {
+      console.warn("Gemini API Error in queryBaselinePipeline, falling back to mock:", err);
+      const mockRes = mockBaselineResponse(req, startTime);
+      mockRes.answer = `[API Fallback Mode: Quota/Network Limit] ${mockRes.answer}`;
+      return mockRes;
+    }
+  }
+
+  return mockBaselineResponse(req, startTime);
+}
+
+function mockBaselineResponse(req: QueryRequest, startTime: number): QueryBaselineResponse {
+  const query = req.query;
+  const lower = query.toLowerCase();
+
+  const asksPneumothorax = lower.includes("pneumothorax") || lower.includes("collapsed lung") || lower.includes("collapsed");
+  const asksHeart = lower.includes("heart") || lower.includes("cardiomegaly") || lower.includes("cardiac") || lower.includes("enlarged");
+  const asksEffusion = lower.includes("effusion") || lower.includes("pleural") || lower.includes("costophrenic") || lower.includes("blunting");
+  const asksTB = lower.includes("tb") || lower.includes("tuberculosis");
+  const asksComparison = lower.includes("compare") || lower.includes("comparison");
+  const asksFindings = lower.includes("finding");
+  const asksExplanation = lower.includes("why") || lower.includes("explain");
+  const asksPneumonia = lower.includes("pneumonia") || lower.includes("infection") || lower.includes("consolidation");
+
+  let answer = "";
+  if (asksPneumothorax) {
+    answer = "No pneumothorax is seen. The lungs are expanded with no visible pleural line. Apical fields are clear.";
+  } else if (asksHeart) {
+    answer = "The cardiac silhouette is within normal limits. There is no evidence of cardiomegaly or active pulmonary congestion.";
+  } else if (asksEffusion) {
+    answer = "Mild right costophrenic angle blunting is present, which could be indicative of a trace pleural effusion or pleural thickening.";
+  } else if (asksTB) {
+    answer = "No cavitary lesions are identified. Patchy right lower lung zone opacification is present, which is non-specific and requires clinical correlation.";
+  } else if (asksComparison) {
+    answer = "The chest radiograph shows right lower lung patchy opacification. Findings are comparable to atelectasis or early consolidation. Comparison with prior chest films is recommended.";
+  } else if (asksFindings) {
+    answer = "Findings include patchy opacification in the right lower lung zone and mild right costophrenic blunting. The heart size is normal, and there is no pneumothorax.";
+  } else if (asksExplanation) {
+    answer = "The patchy density in the right lower lung field may represent fluid, inflammation, or localized collapse (atelectasis) in the alveolar spaces.";
+  } else if (asksPneumonia) {
+    answer = "A patchy opacity is observed in the right lower lung zone, which is consistent with early consolidation/pneumonia. Other inflammatory etiologies cannot be ruled out.";
+  } else {
+    answer = "Patchy opacification is noted in the right lower lung zone. This finding is non-specific and may represent infectious/inflammatory consolidation or atelectasis. Recommend clinical correlation.";
+  }
+
+  const latency_ms = Math.round(performance.now() - startTime);
+  return {
+    answer,
+    latency_ms
+  };
+}
+

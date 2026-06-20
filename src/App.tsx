@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import logoImg from "./logo.png";
-import { queryPipeline, isApiKeyConfigured } from "./services/api";
+import { queryPipeline, queryBaselinePipeline, isApiKeyConfigured } from "./services/api";
 
 interface GraphNode {
   id: string;
@@ -201,6 +201,9 @@ export default function App() {
   const dragPos = useRef<{ x: number; y: number } | null>(null);
   const [primaryAnswer, setPrimaryAnswer] = useState<string>("There is a patchy opacity in the right lower lung zone that may represent consolidation or subsegmental atelectatic change. Mild blunting of the right costophrenic angle is present. Cardiomediastinal silhouette is not enlarged. No pneumothorax is detected.");
   const [clinicalNote, setClinicalNote] = useState<string>("Findings are most consistent with an infectious or inflammatory opacity. Correlate clinically and consider follow-up imaging if symptoms persist.");
+  const [viewMode, setViewMode] = useState<"basic" | "enhanced" | "compare">("compare");
+  const [baselineAnswer, setBaselineAnswer] = useState<string>("Patchy opacification is noted in the right lower lung zone. This finding is non-specific and may represent infectious/inflammatory consolidation or atelectasis. Recommend clinical correlation.");
+  const [baselineLatency, setBaselineLatency] = useState<number>(140);
   
   const [retrievedEvidence, setRetrievedEvidence] = useState<any[]>([
     {
@@ -400,14 +403,24 @@ export default function App() {
 
   const runAnalysisDirectly = async (query: string, type: string) => {
     try {
-      const result = await queryPipeline({
-        query,
-        domain: appMode,
-        top_k: 3,
-        include_images: false
-      });
+      const [result, baselineResult] = await Promise.all([
+        queryPipeline({
+          query,
+          domain: appMode,
+          top_k: 3,
+          include_images: false
+        }),
+        queryBaselinePipeline({
+          query,
+          domain: appMode,
+          top_k: 3,
+          include_images: false
+        })
+      ]);
 
       setPrimaryAnswer(result.answer || "No report generated.");
+      setBaselineAnswer(baselineResult.answer || "No report generated.");
+      setBaselineLatency(baselineResult.latency_ms);
       setClinicalNote(result.clinical_note || "No recommendations.");
       setInsightsList(result.insights || ["No insights generated."]);
       setConfidencePercent(Math.round((result.confidence || 0.85) * 100));
@@ -479,13 +492,22 @@ export default function App() {
       setActiveStep(2);
       setScanStatusText("Generating expert report...");
 
-      const result = await queryPipeline({
-        query: queryText,
-        domain: appMode,
-        top_k: 3,
-        include_images: true,
-        image_b64: imagePart.inlineData.data
-      });
+      const [result, baselineResult] = await Promise.all([
+        queryPipeline({
+          query: queryText,
+          domain: appMode,
+          top_k: 3,
+          include_images: true,
+          image_b64: imagePart.inlineData.data
+        }),
+        queryBaselinePipeline({
+          query: queryText,
+          domain: appMode,
+          top_k: 3,
+          include_images: true,
+          image_b64: imagePart.inlineData.data
+        })
+      ]);
 
       setActiveStep(3);
       setScanStatusText("Verifying correctness...");
@@ -493,6 +515,8 @@ export default function App() {
 
       // Set computed states
       setPrimaryAnswer(result.answer || "No report generated.");
+      setBaselineAnswer(baselineResult.answer || "No report generated.");
+      setBaselineLatency(baselineResult.latency_ms);
       setClinicalNote(result.clinical_note || "No recommendations.");
       setInsightsList(result.insights || ["No insights generated."]);
       setConfidencePercent(Math.round((result.confidence || 0.85) * 100));
@@ -548,6 +572,8 @@ export default function App() {
     } catch (err: any) {
       console.error("Pipeline Error:", err);
       setPrimaryAnswer(`Error running pipeline: ${err.message || err}.`);
+      setBaselineAnswer(`Error running baseline: ${err.message || err}.`);
+      setBaselineLatency(0);
       setClinicalNote("Failed to generate clinical impression due to an error.");
       setInsightsList(["Error occurred during generation pipeline."]);
       setConfidencePercent(0);
@@ -1235,21 +1261,51 @@ QUALITY ATTRIBUTIONS:
                 </h2>
               </div>
               
-              <div className="answer-header-actions flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-xs bg-slate-50 text-slate-800 border-slate-200/60 hover:bg-slate-100 hover:border-slate-300 select-none shrink-0"
-                  title="Open detailed RAG evidence side-drawer"
-                >
-                  <Search size={13} className="text-teal-500" />
-                  <span>View RAG Evidence</span>
-                </button>
-                <span className="citation-chip">Citations [1]-[3]</span>
+              <div className="answer-header-actions flex items-center gap-2 flex-wrap">
+                {/* View Mode Toggle */}
+                <div className="flex bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/60 mr-1 select-none" aria-label="View Mode Selection">
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${viewMode === "basic" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setViewMode("basic")}
+                  >
+                    Basic
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${viewMode === "enhanced" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setViewMode("enhanced")}
+                  >
+                    Enhanced
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${viewMode === "compare" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500 hover:text-slate-800"}`}
+                    onClick={() => setViewMode("compare")}
+                  >
+                    Compare
+                  </button>
+                </div>
+
+                {viewMode !== "basic" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsDrawerOpen(true)}
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-xs bg-slate-50 text-slate-800 border-slate-200/60 hover:bg-slate-100 hover:border-slate-300 select-none shrink-0 cursor-pointer"
+                      title="Open detailed RAG evidence side-drawer"
+                    >
+                      <Search size={13} className="text-teal-500" />
+                      <span>View RAG Evidence</span>
+                    </button>
+                    <span className="citation-chip">Citations [1]-[3]</span>
+                  </>
+                )}
+                
                 <button
                   type="button"
                   onClick={handleCopyReport}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-xs shrink-0 select-none ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 shadow-xs shrink-0 select-none cursor-pointer ${
                     copied 
                     ? "bg-emerald-600 text-white border-emerald-700 font-extrabold" 
                     : "bg-teal-50 text-teal-900 border-teal-200/60 hover:bg-teal-100/80 hover:border-teal-300"
@@ -1263,111 +1319,216 @@ QUALITY ATTRIBUTIONS:
             </div>
 
             {/* Structured answers copy */}
-            <div className="answer-grid">
-              <div className="answer-copy" id="answer-copy">
-                <p className="text-[16px] text-slate-800 leading-relaxed font-semibold">
-                  {primaryAnswer}
-                </p>
-                <div className="clinical-note flex gap-2 items-start mt-3">
-                  <span className="text-teal-700 font-bold">&#10010;</span>
-                  <p className="text-sm italic leading-normal text-teal-800 m-0">
-                    <strong>VLM Assistant Impression:</strong> {clinicalNote}
+            {viewMode === "basic" && (
+              <div className="basic-view-container">
+                <div className="answer-copy p-4 bg-slate-50/50 rounded-xl border border-slate-200">
+                  <div className="flex items-center gap-2 mb-3 bg-slate-100 border border-slate-200 rounded-lg p-2.5">
+                    <Cpu size={16} className="text-slate-500" />
+                    <div>
+                      <strong className="text-xs text-slate-700 block">Baseline Model View</strong>
+                      <span className="text-[10px] text-slate-400">Direct VLM generation from Chest X-Ray without RAG clinical grounding.</span>
+                    </div>
+                  </div>
+                  <p className="text-[16px] text-slate-800 leading-relaxed font-semibold">
+                    {baselineAnswer}
                   </p>
                 </div>
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100 text-xs font-bold text-slate-500 font-mono">
+                  <span>BASELINE MODEL LATENCY:</span>
+                  <span className="text-slate-700 font-mono">{baselineLatency} ms</span>
+                </div>
               </div>
+            )}
 
-              {/* Confidence HUD Gauge */}
-              <div className="confidence-widget" aria-label={`Confidence score ${confidencePercent}%`}>
-                <div className="confidence-hud-gauge w-full">
-                  <div className="flex justify-between items-baseline mb-1">
-                    <span className="text-xs font-semibold text-gray-500 uppercase">Confidence Rating</span>
-                    <span className={`text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                      confidenceLabel === "High" 
-                        ? "bg-teal-50 text-teal-700 border border-teal-100" 
-                        : "bg-amber-50 text-amber-700 border border-amber-100"
-                    }`}>
-                      {confidenceLabel} Match
-                    </span>
-                  </div>
-                  
-                  <div className="flex items-center gap-3 mt-1.5">
-                    <span className="font-mono text-3xl font-black text-teal-600 tracking-tight leading-none">
-                      {confidencePercent}%
-                    </span>
-                    <div className="flex-1">
-                      <div className="gauge-bar-container relative w-full h-3 bg-slate-100 border border-slate-200/60 rounded-full overflow-hidden">
-                        <div 
-                          className="gauge-fill h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 relative"
-                          style={{ width: `${confidencePercent}%` }}
-                        >
-                          <span className="absolute right-0 top-0 bottom-0 w-2 bg-white/40 blur-xs rounded-full"></span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between text-[8px] font-mono text-slate-400 font-bold uppercase tracking-wider mt-1 select-none">
-                        <span>0%</span>
-                        <span>50%</span>
-                        <span>100%</span>
-                      </div>
-                    </div>
+            {viewMode === "enhanced" && (
+              <div className="answer-grid">
+                <div className="answer-copy" id="answer-copy">
+                  <p className="text-[16px] text-slate-800 leading-relaxed font-semibold">
+                    {primaryAnswer}
+                  </p>
+                  <div className="clinical-note flex gap-2 items-start mt-3">
+                    <span className="text-teal-700 font-bold">&#10010;</span>
+                    <p className="text-sm italic leading-normal text-teal-800 m-0">
+                      <strong>VLM Assistant Impression:</strong> {clinicalNote}
+                    </p>
                   </div>
                 </div>
 
-                {/* Thinking Stepper UI */}
-                <div className="thinking-stepper-container w-full mt-4 border-t border-slate-100 pt-3">
-                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block text-left mb-2">
-                    Pipeline Execution Steps
-                  </span>
-                  
-                  <div className="stepper-track flex flex-col gap-2.5 text-left">
-                    {[
-                      { id: 0, label: "DICOM Preprocess", desc: "Pixel matrix normalization", time: "120ms" },
-                      { id: 1, label: "Vector Search", desc: "Searching medical context", time: `${retrievalTime}ms` },
-                      { id: 2, label: "VLM Alignment", desc: "Correlating visual anomalies", time: `${generationTime}s` },
-                      { id: 3, label: "Clinical Verify", desc: "Checking guideline safety", time: "100ms" }
-                    ].map((step) => {
-                      const isCompleted = activeStep > step.id || (!isAnalyzing && activeStep === 4);
-                      const isActive = isAnalyzing && activeStep === step.id;
-
-                      return (
-                        <div 
-                          key={step.id} 
-                          className={`stepper-step flex items-center justify-between text-xs transition-all ${
-                            isCompleted ? "completed text-teal-800" : isActive ? "active text-cyan-800" : "pending text-slate-400"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <div className="stepper-dot flex items-center justify-center rounded-full shrink-0">
-                              {isCompleted ? (
-                                <span className="text-[9px] font-bold">✓</span>
-                              ) : isActive ? (
-                                <span className="active-pulse"></span>
-                              ) : (
-                                <span className="text-[8px] font-extrabold">{step.id + 1}</span>
-                              )}
-                            </div>
-                            <div>
-                              <strong className="block font-bold leading-none mb-0.5">{step.label}</strong>
-                              <span className="text-[9.5px] text-slate-400 font-medium leading-none block">{step.desc}</span>
-                            </div>
+                {/* Confidence HUD Gauge */}
+                <div className="confidence-widget" aria-label={`Confidence score ${confidencePercent}%`}>
+                  <div className="confidence-hud-gauge w-full">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <span className="text-xs font-semibold text-gray-500 uppercase">Confidence Rating</span>
+                      <span className={`text-[9.5px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                        confidenceLabel === "High" 
+                          ? "bg-teal-50 text-teal-700 border border-teal-100" 
+                          : "bg-amber-50 text-amber-700 border border-amber-100"
+                      }`}>
+                        {confidenceLabel} Match
+                      </span>
+                    </div>
+                    
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="font-mono text-3xl font-black text-teal-600 tracking-tight leading-none">
+                        {confidencePercent}%
+                      </span>
+                      <div className="flex-1">
+                        <div className="gauge-bar-container relative w-full h-3 bg-slate-100 border border-slate-200/60 rounded-full overflow-hidden">
+                          <div 
+                            className="gauge-fill h-full rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 relative"
+                            style={{ width: `${confidencePercent}%` }}
+                          >
+                            <span className="absolute right-0 top-0 bottom-0 w-2 bg-white/40 blur-xs rounded-full"></span>
                           </div>
-                          
-                          <span className={`font-mono text-[10px] font-bold ${isCompleted ? "text-teal-600" : "opacity-0"}`}>
-                            {step.time}
-                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {!isAnalyzing && activeStep === 4 && (
-                    <div className="total-pipeline-badge flex justify-between items-center mt-2.5 bg-teal-50/70 border border-teal-150 rounded-lg px-2 py-1 text-teal-800 font-bold text-[11px]">
-                      <span>Total pipe latency</span>
-                      <span className="font-mono text-teal-900">{totalTime} s</span>
+                        <div className="flex justify-between text-[8px] font-mono text-slate-400 font-bold uppercase tracking-wider mt-1 select-none">
+                          <span>0%</span>
+                          <span>50%</span>
+                          <span>100%</span>
+                        </div>
+                      </div>
                     </div>
-                  )}
+                  </div>
+
+                  {/* Thinking Stepper UI */}
+                  <div className="thinking-stepper-container w-full mt-4 border-t border-slate-100 pt-3">
+                    <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block text-left mb-2">
+                      Pipeline Execution Steps
+                    </span>
+                    
+                    <div className="stepper-track flex flex-col gap-2.5 text-left">
+                      {[
+                        { id: 0, label: "DICOM Preprocess", desc: "Pixel matrix normalization", time: "120ms" },
+                        { id: 1, label: "Vector Search", desc: "Searching medical context", time: `${retrievalTime}ms` },
+                        { id: 2, label: "VLM Alignment", desc: "Correlating visual anomalies", time: `${generationTime}s` },
+                        { id: 3, label: "Clinical Verify", desc: "Checking guideline safety", time: "100ms" }
+                      ].map((step) => {
+                        const isCompleted = activeStep > step.id || (!isAnalyzing && activeStep === 4);
+                        const isActive = isAnalyzing && activeStep === step.id;
+
+                        return (
+                          <div 
+                            key={step.id} 
+                            className={`stepper-step flex items-center justify-between text-xs transition-all ${
+                              isCompleted ? "completed text-teal-800" : isActive ? "active text-cyan-800" : "pending text-slate-400"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <div className="stepper-dot flex items-center justify-center rounded-full shrink-0">
+                                {isCompleted ? (
+                                  <span className="text-[9px] font-bold">✓</span>
+                                ) : isActive ? (
+                                  <span className="active-pulse"></span>
+                                ) : (
+                                  <span className="text-[8px] font-extrabold">{step.id + 1}</span>
+                                )}
+                              </div>
+                              <div>
+                                <strong className="block font-bold leading-none mb-0.5">{step.label}</strong>
+                                <span className="text-[9.5px] text-slate-400 font-medium leading-none block">{step.desc}</span>
+                              </div>
+                            </div>
+                            
+                            <span className={`font-mono text-[10px] font-bold ${isCompleted ? "text-teal-600" : "opacity-0"}`}>
+                              {step.time}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {!isAnalyzing && activeStep === 4 && (
+                      <div className="total-pipeline-badge flex justify-between items-center mt-2.5 bg-teal-50/70 border border-teal-150 rounded-lg px-2 py-1 text-teal-800 font-bold text-[11px]">
+                        <span>Total pipe latency</span>
+                        <span className="font-mono text-teal-900">{totalTime} s</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
+
+            {viewMode === "compare" && (
+              <div className="comparison-view-grid grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                {/* Left Panel: Baseline Model */}
+                <div className="comparison-panel baseline p-4 rounded-xl border border-slate-200 bg-slate-50/30 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-slate-200">
+                      <span className="flex items-center gap-1.5 font-bold text-xs text-slate-600 uppercase tracking-wider">
+                        <Cpu size={14} className="text-slate-500" />
+                        Baseline VLM (Standard)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-500 border border-slate-200">
+                        No RAG Context
+                      </span>
+                    </div>
+
+                    <div className="answer-copy">
+                      <p className="text-[14.5px] text-slate-800 leading-relaxed font-semibold">
+                        {baselineAnswer}
+                      </p>
+                    </div>
+
+                    {/* Warning about no citations */}
+                    <div className="mt-4 p-3 bg-amber-50/70 border border-amber-200/50 rounded-xl text-xs text-amber-800/90 flex gap-2 items-start leading-normal">
+                      <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={13} />
+                      <div>
+                        <strong>Factual Hazard:</strong> Response generated without clinical context grounding. Citations, confidence checks, and RAG verification are unavailable.
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center text-[10px] font-bold text-slate-500 font-mono">
+                    <span>LATENCY:</span>
+                    <span className="text-slate-700 font-mono">{baselineLatency} ms</span>
+                  </div>
+                </div>
+
+                {/* Right Panel: Enhanced MMRAG Pipeline */}
+                <div className="comparison-panel enhanced p-4 rounded-xl border border-teal-200/50 bg-teal-50/5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4 pb-2 border-b border-teal-150">
+                      <span className="flex items-center gap-1.5 font-bold text-xs text-teal-800 uppercase tracking-wider">
+                        <Sparkles size={14} className="text-teal-600" />
+                        Enhanced MMRAG Pipeline
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-teal-50 text-teal-700 border border-teal-150 animate-pulse">
+                        RAG Grounded
+                      </span>
+                    </div>
+
+                    <div className="answer-copy">
+                      <p className="text-[14.5px] text-slate-800 leading-relaxed font-semibold">
+                        {primaryAnswer}
+                      </p>
+                      <div className="clinical-note flex gap-2 items-start mt-3">
+                        <span className="text-teal-700 font-bold">&#10010;</span>
+                        <p className="text-xs italic leading-normal text-teal-800 m-0">
+                          <strong>VLM Assistant Impression:</strong> {clinicalNote}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Embedded Trust Stats for Compare View */}
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="p-2.5 bg-teal-50/50 border border-teal-100 rounded-xl text-center">
+                        <span className="block text-[9px] font-extrabold text-teal-700 uppercase tracking-wider mb-0.5">Confidence</span>
+                        <span className="font-mono text-base font-black text-teal-900">{confidencePercent}%</span>
+                      </div>
+                      <div className="p-2.5 bg-cyan-50/50 border border-cyan-100 rounded-xl text-center">
+                        <span className="block text-[9px] font-extrabold text-cyan-700 uppercase tracking-wider mb-0.5">Alignment</span>
+                        <span className="font-mono text-base font-black text-cyan-900">{(evidenceAlignmentScore * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-teal-150 flex justify-between items-center text-[10px] font-bold text-teal-850 font-mono">
+                    <span>LATENCY:</span>
+                    <span className="text-teal-800 font-mono">{totalTime} s</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </article>
 
           {/* Medical Insights Explanatory Card */}
