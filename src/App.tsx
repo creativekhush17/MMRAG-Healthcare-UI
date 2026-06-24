@@ -241,6 +241,27 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const renderAnswerWithCitations = (text: string) => {
+    const parts = text.split(/(\[\d+\])/g);
+    return parts.map((part, index) => {
+      const match = part.match(/^\[(\d+)\]$/);
+      if (match) {
+        const num = match[1];
+        return (
+          <span
+            key={index}
+            className="inline-flex items-center justify-center bg-emerald-100 text-emerald-800 font-extrabold text-[11px] px-1.5 py-0.5 rounded-md mx-0.5 shadow-3xs cursor-pointer border border-emerald-250 citation-glowing-green"
+            onClick={() => setIsDrawerOpen(true)}
+            title={`Click to view Citation [${num}] in RAG Evidence`}
+          >
+            [{num}]
+          </span>
+        );
+      }
+      return part;
+    });
+  };
+
   // Initialize checks
   useEffect(() => {
     runAnalysisDirectly(queryText, selectedQueryType);
@@ -1344,7 +1365,7 @@ QUALITY ATTRIBUTIONS:
               <div className="answer-grid">
                 <div className="answer-copy" id="answer-copy">
                   <p className="text-[16px] text-slate-800 leading-relaxed font-semibold">
-                    {primaryAnswer}
+                    {renderAnswerWithCitations(primaryAnswer)}
                   </p>
                   <div className="clinical-note flex gap-2 items-start mt-3">
                     <span className="text-teal-700 font-bold">&#10010;</span>
@@ -1458,9 +1479,15 @@ QUALITY ATTRIBUTIONS:
                         <Cpu size={14} className="text-slate-500" />
                         Baseline VLM (Standard)
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-500 border border-slate-200">
-                        No RAG Context
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-red-50 text-red-600 border border-red-150 flex items-center gap-1 select-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                          0 Citations
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-slate-100 text-slate-500 border border-slate-200 select-none">
+                          No RAG Context
+                        </span>
+                      </div>
                     </div>
 
                     <div className="answer-copy">
@@ -1478,28 +1505,54 @@ QUALITY ATTRIBUTIONS:
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center text-[10px] font-bold text-slate-500 font-mono">
-                    <span>LATENCY:</span>
-                    <span className="text-slate-700 font-mono">{baselineLatency} ms</span>
+                  <div>
+                    {/* Visual Comparative Stats for Baseline */}
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-slate-200/60 pt-4">
+                      <div className="p-2.5 bg-slate-100/60 border border-slate-200 rounded-xl text-center select-none">
+                        <span className="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Confidence</span>
+                        <span className="font-mono text-xs font-black text-slate-400 block mb-1.5">N/A (Unchecked)</span>
+                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-slate-350" style={{ width: "0%" }}></div>
+                        </div>
+                      </div>
+                      <div className="p-2.5 bg-slate-100/60 border border-slate-200 rounded-xl text-center select-none">
+                        <span className="block text-[9px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">Alignment</span>
+                        <span className="font-mono text-xs font-black text-slate-400 block mb-1.5">0% (Unaligned)</span>
+                        <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-slate-300" style={{ width: "0%" }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-200 flex justify-between items-center text-[10px] font-bold text-slate-500 font-mono">
+                      <span>LATENCY:</span>
+                      <span className="text-slate-700 font-mono">{baselineLatency} ms</span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Right Panel: Enhanced MMRAG Pipeline */}
-                <div className="comparison-panel enhanced p-4 rounded-xl border border-teal-200/50 bg-teal-50/5 flex flex-col justify-between">
+                <div className="comparison-panel enhanced p-4 rounded-xl border border-teal-200/50 bg-teal-50/5 flex flex-col justify-between compare-enhanced-panel-highlight">
                   <div>
                     <div className="flex items-center justify-between mb-4 pb-2 border-b border-teal-150">
                       <span className="flex items-center gap-1.5 font-bold text-xs text-teal-800 uppercase tracking-wider">
                         <Sparkles size={14} className="text-teal-600" />
                         Enhanced MMRAG Pipeline
                       </span>
-                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-teal-50 text-teal-700 border border-teal-150 animate-pulse">
-                        RAG Grounded
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-150 flex items-center gap-1 tag-glowing-green select-none">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          3 Citations
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-teal-50 text-teal-700 border border-teal-150 animate-pulse select-none">
+                          RAG Grounded
+                        </span>
+                      </div>
                     </div>
 
                     <div className="answer-copy">
                       <p className="text-[14.5px] text-slate-800 leading-relaxed font-semibold">
-                        {primaryAnswer}
+                        {renderAnswerWithCitations(primaryAnswer)}
                       </p>
                       <div className="clinical-note flex gap-2 items-start mt-3">
                         <span className="text-teal-700 font-bold">&#10010;</span>
@@ -1508,23 +1561,31 @@ QUALITY ATTRIBUTIONS:
                         </p>
                       </div>
                     </div>
-
-                    {/* Embedded Trust Stats for Compare View */}
-                    <div className="mt-4 grid grid-cols-2 gap-2">
-                      <div className="p-2.5 bg-teal-50/50 border border-teal-100 rounded-xl text-center">
-                        <span className="block text-[9px] font-extrabold text-teal-700 uppercase tracking-wider mb-0.5">Confidence</span>
-                        <span className="font-mono text-base font-black text-teal-900">{confidencePercent}%</span>
-                      </div>
-                      <div className="p-2.5 bg-cyan-50/50 border border-cyan-100 rounded-xl text-center">
-                        <span className="block text-[9px] font-extrabold text-cyan-700 uppercase tracking-wider mb-0.5">Alignment</span>
-                        <span className="font-mono text-base font-black text-cyan-900">{(evidenceAlignmentScore * 100).toFixed(0)}%</span>
-                      </div>
-                    </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-teal-150 flex justify-between items-center text-[10px] font-bold text-teal-850 font-mono">
-                    <span>LATENCY:</span>
-                    <span className="text-teal-800 font-mono">{totalTime} s</span>
+                  <div>
+                    {/* Visual Comparative Stats for Enhanced */}
+                    <div className="mt-4 grid grid-cols-2 gap-2 border-t border-teal-150 pt-4">
+                      <div className="p-2.5 bg-teal-50/60 border border-teal-200 rounded-xl text-center relative overflow-hidden compare-stat-glowing select-none">
+                        <span className="block text-[9px] font-extrabold text-teal-700 uppercase tracking-wider mb-1">Confidence</span>
+                        <span className="font-mono text-xs font-black text-teal-900 block mb-1.5">{confidencePercent}% (Verified)</span>
+                        <div className="w-full h-1.5 bg-teal-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-500" style={{ width: `${confidencePercent}%` }}></div>
+                        </div>
+                      </div>
+                      <div className="p-2.5 bg-cyan-50/60 border border-cyan-200 rounded-xl text-center relative overflow-hidden select-none">
+                        <span className="block text-[9px] font-extrabold text-cyan-700 uppercase tracking-wider mb-1">Alignment</span>
+                        <span className="font-mono text-xs font-black text-cyan-900 block mb-1.5">{(evidenceAlignmentScore * 100).toFixed(0)}% (Aligned)</span>
+                        <div className="w-full h-1.5 bg-cyan-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-500" style={{ width: `${(evidenceAlignmentScore * 100).toFixed(0)}%` }}></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-teal-150 flex justify-between items-center text-[10px] font-bold text-teal-850 font-mono">
+                      <span>LATENCY:</span>
+                      <span className="text-teal-850 font-mono">{totalTime} s</span>
+                    </div>
                   </div>
                 </div>
               </div>
