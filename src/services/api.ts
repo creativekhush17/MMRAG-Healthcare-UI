@@ -71,6 +71,7 @@ export interface QueryRequest {
   top_k: number;
   include_images: boolean;
   image_b64?: string;
+  is_baseline?: boolean;
 }
 
 export interface QueryResponse {
@@ -101,21 +102,45 @@ export interface QueryResponse {
   insights?: string[];
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number }): Promise<Response> {
+  const { timeout = 15000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal
+    });
+    clearTimeout(id);
+    return response;
+  } catch (err: any) {
+    clearTimeout(id);
+    if (err.name === 'AbortError') {
+      throw new Error(`Connection timed out after ${timeout / 1000} seconds. The server might be slow or unresponsive.`);
+    }
+    if (err.message && err.message.includes('Failed to fetch')) {
+      throw new Error(`Failed to establish connection to the backend at ${url}. Please verify if the server is running and accessible.`);
+    }
+    throw err;
+  }
+}
+
 export async function queryPipeline(req: QueryRequest): Promise<QueryResponse> {
   const API_URL = import.meta.env.VITE_API_URL;
   const startTime = performance.now();
 
   if (API_URL) {
-    // Single fetch() to the configured backend API
-    const response = await fetch(API_URL, {
+    const response = await fetchWithTimeout(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(req),
+      body: JSON.stringify({ ...req, is_baseline: false }),
+      timeout: 15000
     });
     if (!response.ok) {
-      throw new Error(`API backend returned error: ${response.statusText}`);
+      throw new Error(`API backend returned error: ${response.status} ${response.statusText}`);
     }
     const result = await response.json();
     return result as QueryResponse;
@@ -377,7 +402,24 @@ export interface QueryBaselineResponse {
 }
 
 export async function queryBaselinePipeline(req: QueryRequest): Promise<QueryBaselineResponse> {
+  const API_URL = import.meta.env.VITE_API_URL;
   const startTime = performance.now();
+
+  if (API_URL) {
+    const response = await fetchWithTimeout(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...req, is_baseline: true }),
+      timeout: 15000
+    });
+    if (!response.ok) {
+      throw new Error(`API backend returned error: ${response.status} ${response.statusText}`);
+    }
+    const result = await response.json();
+    return result as QueryBaselineResponse;
+  }
 
   if (isApiKeyConfigured && ai) {
     try {

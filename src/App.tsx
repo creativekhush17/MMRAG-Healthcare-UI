@@ -47,6 +47,27 @@ interface GraphEdge {
   relation: string;
 }
 
+interface ModeData {
+  primaryAnswer: string;
+  baselineAnswer: string;
+  baselineLatency: number;
+  clinicalNote: string;
+  insightsList: string[];
+  confidencePercent: number;
+  confidenceLabel: string;
+  evidenceAlignmentScore: number;
+  retrievedEvidence: any[];
+  retrievalTime: number;
+  generationTime: number;
+  totalTime: number;
+  verificationTitle: string;
+  verificationList: string[];
+  queryText: string;
+  selectedQueryType: string;
+  graphNodes: GraphNode[];
+  graphEdges: GraphEdge[];
+}
+
 const initialNodes: GraphNode[] = [
   { id: "N1", label: "Pneumothorax", type: "condition", x: 100, y: 80, vx: 0, vy: 0 },
   { id: "N2", label: "Pleural Cavity", type: "anatomy", x: 140, y: 160, vx: 0, vy: 0 },
@@ -204,6 +225,105 @@ export default function App() {
   const [viewMode, setViewMode] = useState<"basic" | "enhanced" | "compare">("compare");
   const [baselineAnswer, setBaselineAnswer] = useState<string>("Patchy opacification is noted in the right lower lung zone. This finding is non-specific and may represent infectious/inflammatory consolidation or atelectasis. Recommend clinical correlation.");
   const [baselineLatency, setBaselineLatency] = useState<number>(140);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const [healthcareCache, setHealthcareCache] = useState<ModeData>({
+    primaryAnswer: "There is a patchy opacity in the right lower lung zone that may represent consolidation or subsegmental atelectatic change. Mild blunting of the right costophrenic angle is present. Cardiomediastinal silhouette is not enlarged. No pneumothorax is detected.",
+    baselineAnswer: "Patchy opacification is noted in the right lower lung zone. This finding is non-specific and may represent infectious/inflammatory consolidation or atelectasis. Recommend clinical correlation.",
+    baselineLatency: 140,
+    clinicalNote: "Findings are most consistent with an infectious or inflammatory opacity. Correlate clinically and consider follow-up imaging if symptoms persist.",
+    insightsList: [
+      "Right lower-lobe opacity detected with possible consolidation.",
+      "Mild right costophrenic angle blunting observed.",
+      "No prominent cardiomegaly or pneumothorax.",
+      "Evidence aligns with pneumonia and atelectatic case patterns."
+    ],
+    confidencePercent: 87,
+    confidenceLabel: "High",
+    evidenceAlignmentScore: 0.91,
+    retrievedEvidence: [
+      {
+        title: "Radiopaedia: Lower Lobe Pneumonia",
+        summary: "Patient presents with patchy basal airspace opacity and right costophrenic blunting patterns consistent with lobar infection.",
+        source: "Medical reference",
+        score: 0.94,
+        url: "https://radiopaedia.org/articles/air-space-opacification"
+      },
+      {
+        title: "Fleischner Society Glossary",
+        summary: "Terminology standard definition: consolidations are airspace filling, and atelectasis represents focal or subsegmental volume loss.",
+        source: "Terminology reference",
+        score: 0.88,
+        url: "https://pubs.rsna.org/doi/10.1148/radiol.2462070712"
+      },
+      {
+        title: "RSNA CXR Case Collection",
+        summary: "Similar reports in right lower zone opacification favoring acute pneumonic process or dense subsegmental volume loss.",
+        source: "Retrieved report case",
+        score: 0.81,
+        url: "https://openi.nlm.nih.gov/"
+      }
+    ],
+    retrievalTime: 420,
+    generationTime: 1.8,
+    totalTime: 2.3,
+    verificationTitle: "Verified: evidence aligned",
+    verificationList: [
+      "Answer uses cautious medical terminology",
+      "Findings are thoroughly backed by retrieved evidence cards",
+      "No definitive diagnosis is asserted without clinical correlation guidelines"
+    ],
+    queryText: "Explain the lower-lobe opacity and cite supporting evidence.",
+    selectedQueryType: "Explanation",
+    graphNodes: initialNodes,
+    graphEdges: initialEdges
+  });
+
+  const [scientificCache, setScientificCache] = useState<ModeData>({
+    primaryAnswer: "Multimodal RAG alignment vectors leverage contrastive loss to minimize distance between relevant visual chest X-Ray patches and document texts. This creates a unified representation space [1].",
+    baselineAnswer: "Multimodal models map text and image inputs into a shared embedding space without explicit retrieval. The lack of document grounding can lead to hallucinations in clinical interpretation.",
+    baselineLatency: 180,
+    clinicalNote: "System achieves higher semantic alignment but direct supervision is required.",
+    insightsList: [
+      "Contrastive learning applied to visual patches.",
+      "Dual-encoder structures evaluated.",
+      "Zero-shot retrieval shows 12% accuracy gain."
+    ],
+    confidencePercent: 91,
+    confidenceLabel: "High",
+    evidenceAlignmentScore: 0.88,
+    retrievedEvidence: [
+      {
+        title: "arXiv:2306.00020 - Multimodal Medical VLM Alignment",
+        summary: "We present a unified multimodal retrieval framework for chest radiography by computing joint embeddings over radiographic patches and textual clinical tags.",
+        source: "arXiv paper",
+        score: 0.92,
+        url: "https://arxiv.org/pdf/2306.00020.pdf"
+      }
+    ],
+    retrievalTime: 380,
+    generationTime: 1.6,
+    totalTime: 2.1,
+    verificationTitle: "Verified: scientific grounding",
+    verificationList: [
+      "Citations match arXiv reference abstracts",
+      "Vector similarity score exceeds 0.85 threshold",
+      "Equations match visual transformer embeddings"
+    ],
+    queryText: "Explain the visual-textual RAG alignment vector space and how contrastive loss is applied.",
+    selectedQueryType: "Explanation",
+    graphNodes: [
+      { id: "V1", label: "CXR Patches", type: "modality", x: 100, y: 80, vx: 0, vy: 0 },
+      { id: "V2", label: "ColPali Encoder", type: "concept", x: 180, y: 120, vx: 0, vy: 0 },
+      { id: "V3", label: "Contrastive Loss", type: "concept", x: 260, y: 160, vx: 0, vy: 0 },
+      { id: "V4", label: "Grounding Reference", type: "finding", x: 340, y: 200, vx: 0, vy: 0 }
+    ],
+    graphEdges: [
+      { source: "V1", target: "V2", relation: "processes" },
+      { source: "V2", target: "V3", relation: "optimizes" },
+      { source: "V3", target: "V4", relation: "aligns" }
+    ]
+  });
   
   const [retrievedEvidence, setRetrievedEvidence] = useState<any[]>([
     {
@@ -422,18 +542,19 @@ export default function App() {
     );
   };
 
-  const runAnalysisDirectly = async (query: string, type: string) => {
+  const runAnalysisDirectly = async (query: string, type: string, activeDomain: "healthcare" | "scientific" = appMode) => {
+    setErrorMessage(null);
     try {
       const [result, baselineResult] = await Promise.all([
         queryPipeline({
           query,
-          domain: appMode,
+          domain: activeDomain,
           top_k: 3,
           include_images: false
         }),
         queryBaselinePipeline({
           query,
-          domain: appMode,
+          domain: activeDomain,
           top_k: 3,
           include_images: false
         })
@@ -493,14 +614,16 @@ export default function App() {
         setGraphNodes(newNodes);
         setGraphEdges(result.graph.edges);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("runAnalysisDirectly error:", err);
+      setErrorMessage(err.message || String(err));
     }
   };
 
   const handleAnalyzeClick = async () => {
     setIsAnalyzing(true);
     setScanStatusText("Encoding image...");
+    setErrorMessage(null);
 
     try {
       setActiveStep(0);
@@ -592,6 +715,7 @@ export default function App() {
 
     } catch (err: any) {
       console.error("Pipeline Error:", err);
+      setErrorMessage(err.message || String(err));
       setPrimaryAnswer(`Error running pipeline: ${err.message || err}.`);
       setBaselineAnswer(`Error running baseline: ${err.message || err}.`);
       setBaselineLatency(0);
@@ -660,6 +784,62 @@ export default function App() {
       const el = document.getElementById("answer");
       if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 1200);
+  };
+
+  const handleModeChange = (mode: "healthcare" | "scientific") => {
+    // 1. Save current state to cache before switching
+    const currentData: ModeData = {
+      primaryAnswer,
+      baselineAnswer,
+      baselineLatency,
+      clinicalNote,
+      insightsList,
+      confidencePercent,
+      confidenceLabel,
+      evidenceAlignmentScore,
+      retrievedEvidence,
+      retrievalTime,
+      generationTime,
+      totalTime,
+      verificationTitle,
+      verificationList,
+      queryText,
+      selectedQueryType,
+      graphNodes,
+      graphEdges
+    };
+
+    if (appMode === "healthcare") {
+      setHealthcareCache(currentData);
+    } else {
+      setScientificCache(currentData);
+    }
+
+    // 2. Load the cached target state
+    const targetData = mode === "healthcare" ? healthcareCache : scientificCache;
+
+    setAppMode(mode);
+    setErrorMessage(null);
+    
+    // Restore states instantly
+    setPrimaryAnswer(targetData.primaryAnswer);
+    setBaselineAnswer(targetData.baselineAnswer);
+    setBaselineLatency(targetData.baselineLatency);
+    setClinicalNote(targetData.clinicalNote);
+    setInsightsList(targetData.insightsList);
+    setConfidencePercent(targetData.confidencePercent);
+    setConfidenceLabel(targetData.confidenceLabel);
+    setEvidenceAlignmentScore(targetData.evidenceAlignmentScore);
+    setRetrievedEvidence(targetData.retrievedEvidence);
+    setRetrievalTime(targetData.retrievalTime);
+    setGenerationTime(targetData.generationTime);
+    setTotalTime(targetData.totalTime);
+    setVerificationTitle(targetData.verificationTitle);
+    setVerificationList(targetData.verificationList);
+    setQueryText(targetData.queryText);
+    setSelectedQueryType(targetData.selectedQueryType);
+    setGraphNodes(targetData.graphNodes);
+    setGraphEdges(targetData.graphEdges);
   };
 
   // PAC manipulate view
@@ -732,14 +912,14 @@ QUALITY ATTRIBUTIONS:
           <button
             type="button"
             className={`mode-toggle-btn ${appMode === "healthcare" ? "active" : ""}`}
-            onClick={() => setAppMode("healthcare")}
+            onClick={() => handleModeChange("healthcare")}
           >
             healthcare
           </button>
           <button
             type="button"
             className={`mode-toggle-btn ${appMode === "scientific" ? "active" : ""}`}
-            onClick={() => setAppMode("scientific")}
+            onClick={() => handleModeChange("scientific")}
           >
             scientific
           </button>
@@ -1210,16 +1390,24 @@ QUALITY ATTRIBUTIONS:
             <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-200/30">
               <span className="text-[11.5px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
-                Clinical Focus Suggestions
+                {appMode === "healthcare" ? "Clinical Focus Suggestions" : "Research Focus Suggestions"}
               </span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[125px] overflow-y-auto pr-1">
-              {[
-                { label: "Pneumonia Evaluation", query: "Evaluate right and left lower lobes for signs of acute pneumonia, airspace consolidation, or patchy opacities.", desc: "Assess lung air densities" },
-                { label: "Cardiomegaly Assay", query: "Assess cardiothoracic ratio, evaluate heart size, and check for signs of pulmonary congestion or vascular overload.", desc: "Heart size & vessels check" },
-                { label: "Pneumothorax Scan", query: "Rule out pneumothorax. Scan apical marginal pleural lines, and assess for subpleural lucencies.", desc: "Identify air margin pleural lines" },
-                { label: "Costophrenic Angles", query: "Analyze costophrenic angles for trace pleural effusions, blunting, or pleural recess thickening.", desc: "Check basal fluid blunting" }
-              ].map((tpl, i) => (
+              {(appMode === "healthcare"
+                ? [
+                    { label: "Pneumonia Evaluation", query: "Evaluate right and left lower lobes for signs of acute pneumonia, airspace consolidation, or patchy opacities.", desc: "Assess lung air densities" },
+                    { label: "Cardiomegaly Assay", query: "Assess cardiothoracic ratio, evaluate heart size, and check for signs of pulmonary congestion or vascular overload.", desc: "Heart size & vessels check" },
+                    { label: "Pneumothorax Scan", query: "Rule out pneumothorax. Scan apical marginal pleural lines, and assess for subpleural lucencies.", desc: "Identify air margin pleural lines" },
+                    { label: "Costophrenic Angles", query: "Analyze costophrenic angles for trace pleural effusions, blunting, or pleural recess thickening.", desc: "Check basal fluid blunting" }
+                  ]
+                : [
+                    { label: "Multimodal Alignment", query: "Explain the visual-textual RAG alignment vector space and how contrastive loss is applied.", desc: "Understand RAG mathematics" },
+                    { label: "Hallucination Mitigation", query: "How does retrieval-augmented generation reduce hallucination rates in clinical vision-language models?", desc: "Analyze VLM grounding trust" },
+                    { label: "ColPali Performance", query: "Compare the visual document retrieval performance of ColPali models against standard ColBERT text models.", desc: "Evaluate benchmark scores" },
+                    { label: "VLM Assistant Impression", query: "What are the ethical implications and limitations of using automated VLM assistant impressions in clinical practice?", desc: "Ethical guidelines & constraints" }
+                  ]
+              ).map((tpl, i) => (
                 <button
                   key={i}
                   type="button"
@@ -1338,6 +1526,35 @@ QUALITY ATTRIBUTIONS:
                 </button>
               </div>
             </div>
+
+            {errorMessage && (
+              <div className="mx-4 my-3 p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 flex gap-3 items-start leading-relaxed shadow-xs">
+                <AlertTriangle className="text-rose-600 shrink-0 mt-0.5 animate-bounce" size={18} />
+                <div className="flex-1">
+                  <strong className="block text-rose-900 font-bold mb-1 text-sm">Pipeline Connection Offline / Slow</strong>
+                  <p className="text-xs text-rose-700 font-semibold mb-3 leading-normal">{errorMessage}</p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMessage(null);
+                        handleAnalyzeClick();
+                      }}
+                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs border border-rose-700 active:scale-95"
+                    >
+                      Retry Analysis
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setErrorMessage(null)}
+                      className="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-800 border border-rose-200 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-3xs active:scale-95"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Structured answers copy */}
             {viewMode === "basic" && (
