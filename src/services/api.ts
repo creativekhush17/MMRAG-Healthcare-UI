@@ -271,6 +271,7 @@ export async function queryPipeline(req: QueryRequest): Promise<QueryResponse> {
     console.warn("Gemini API Error in queryPipeline, falling back to mock:", err);
     // Gracefully fallback to high-fidelity mock response on quota limit (429) or network errors
     const mockRes = mockQueryResponse(req, startTime);
+    mockRes.answer = `[API Fallback Mode: Quota/Network Limit] ${mockRes.answer}`;
     return mockRes;
   }
 }
@@ -459,6 +460,7 @@ export async function queryBaselinePipeline(req: QueryRequest): Promise<QueryBas
     } catch (err: any) {
       console.warn("Gemini API Error in queryBaselinePipeline, falling back to mock:", err);
       const mockRes = mockBaselineResponse(req, startTime);
+      mockRes.answer = `[API Fallback Mode: Quota/Network Limit] ${mockRes.answer}`;
       return mockRes;
     }
   }
