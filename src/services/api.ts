@@ -228,7 +228,7 @@ export async function queryPipeline(req: QueryRequest): Promise<QueryResponse> {
     );
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-flash-lite",
       contents,
       config: {
         responseMimeType: "application/json",
@@ -447,7 +447,7 @@ export async function queryBaselinePipeline(req: QueryRequest): Promise<QueryBas
       );
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash-lite",
         contents,
       });
 
