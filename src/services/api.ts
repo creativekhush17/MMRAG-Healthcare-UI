@@ -147,7 +147,7 @@ export async function queryPipeline(req: QueryRequest): Promise<QueryResponse> {
   }
 
   // Fallback / local test backend with Gemini client-side SDK
-  if (!isApiKeyConfigured || !ai) {
+  if (!isApiKeyConfigured() || !ai) {
     // Return simulated/mock response if no live API key is present
     return mockQueryResponse(req, startTime);
   }
@@ -421,7 +421,7 @@ export async function queryBaselinePipeline(req: QueryRequest): Promise<QueryBas
     return result as QueryBaselineResponse;
   }
 
-  if (isApiKeyConfigured && ai) {
+  if (isApiKeyConfigured() && ai) {
     try {
       const contents: any[] = [];
       if (req.include_images && req.image_b64) {

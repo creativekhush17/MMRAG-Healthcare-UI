@@ -180,3 +180,141 @@ async def query_endpoint(req: QueryRequest):
 The frontend implements a **15-second client-side timeout** using `AbortController`. 
 
 If your backend is slow (e.g. cold-start or API rate-limit), the client will automatically cancel the fetch request and show a red alert card. Ensure your backend returns responses under 15 seconds, or implement streaming/chunking endpoints if long delays are unavoidable.
+
+---
+
+## 6. Sample Request/Response Payloads
+
+### Sample 1: Healthcare RAG Pipeline Request & Response (`is_baseline: false`)
+
+**Request Payload:**
+```json
+{
+  "query": "Explain the lower-lobe opacity and cite supporting evidence.",
+  "domain": "healthcare",
+  "top_k": 3,
+  "include_images": true,
+  "image_b64": "iVBORw0KGgoAAAANS...",
+  "is_baseline": false
+}
+```
+
+**Response Payload:**
+```json
+{
+  "answer": "A patchy opacification is present in the right lower lung field [1] indicative of either lobar pneumonia or focal atelectasis. There is accompanying mild right costophrenic angle blunting [2].",
+  "confidence": 0.87,
+  "latency_ms": 1250,
+  "clinical_note": "Consolidation pattern suggests infectious etiology; clinical correlation and follow-up radiograph in 2 weeks are recommended.",
+  "insights": [
+    "Right lower-lobe opacity detected with consolidation signs.",
+    "Mild blunting of the right costophrenic angle.",
+    "No acute tension pneumothorax or pleural effusion lines."
+  ],
+  "verification": {
+    "attribution": true,
+    "faithfulness": true,
+    "confidence_pass": true
+  },
+  "sources": [
+    {
+      "doc_id": "Radiopaedia: Basal Pneumonia Guidelines",
+      "page": 1,
+      "title": "Airspace Opacification Reference",
+      "relevance_score": 0.94,
+      "snippet": "Basal opacity associated with focal blunting patterns indicates typical infectious lobar consolidation."
+    },
+    {
+      "doc_id": "Fleischner Society Glossary",
+      "page": 1,
+      "title": "Atelectasis definition criteria",
+      "relevance_score": 0.88,
+      "snippet": "Subsegmental atelectasis is characterized by focal linear or plate-like opacities resulting from volume loss."
+    }
+  ],
+  "graph": {
+    "nodes": [
+      { "id": "finding_1", "label": "Patchy Opacity", "type": "finding" },
+      { "id": "anatomy_1", "label": "Right Lower Lung Field", "type": "anatomy" },
+      { "id": "cond_1", "label": "Lobar Pneumonia", "type": "condition" }
+    ],
+    "edges": [
+      { "source": "finding_1", "target": "anatomy_1", "relation": "located_in" },
+      { "source": "finding_1", "target": "cond_1", "relation": "associated_with" }
+    ]
+  }
+}
+```
+
+### Sample 2: Scientific RAG Pipeline Request & Response (`is_baseline: false`)
+
+**Request Payload:**
+```json
+{
+  "query": "Explain the visual-textual RAG alignment vector space and how contrastive loss is applied.",
+  "domain": "scientific",
+  "top_k": 3,
+  "include_images": false,
+  "is_baseline": false
+}
+```
+
+**Response Payload:**
+```json
+{
+  "answer": "Contrastive loss forces positive pairs (matching image patches and corresponding textual reports) closer together while pushing negative pairs apart in the unified vector space [1]. This ensures high zero-shot visual retrieval scores.",
+  "confidence": 0.93,
+  "latency_ms": 940,
+  "clinical_note": "Dual-encoder architecture utilizing ColPali creates dense grounded visual embeddings aligned with medical descriptions.",
+  "insights": [
+    "Contrastive learning applied to visual patch tokens.",
+    "Normalized temperature-scaled cross-entropy loss utilized.",
+    "Zero-shot retrieval accuracy shows 12% relative gain."
+  ],
+  "verification": {
+    "attribution": true,
+    "faithfulness": true,
+    "confidence_pass": true
+  },
+  "sources": [
+    {
+      "doc_id": "arXiv:2306.00020 - VLM Multimodal Alignment",
+      "page": 3,
+      "title": "Dual-Encoder Vector Alignment",
+      "relevance_score": 0.95,
+      "snippet": "Applying contrastive loss to patch-level projections minimizes cosine distance over true matches."
+    }
+  ],
+  "graph": {
+    "nodes": [
+      { "id": "concept_1", "label": "Contrastive Loss", "type": "concept" },
+      { "id": "concept_2", "label": "Visual-Textual Alignment", "type": "concept" }
+    ],
+    "edges": [
+      { "source": "concept_1", "target": "concept_2", "relation": "optimizes" }
+    ]
+  }
+}
+```
+
+### Sample 3: Baseline Pipeline Request & Response (`is_baseline: true`)
+
+**Request Payload:**
+```json
+{
+  "query": "Determine the cardiac silhouette ratio and check if there is trace pulmonary edema.",
+  "domain": "healthcare",
+  "top_k": 1,
+  "include_images": true,
+  "image_b64": "iVBORw0KGgoAAAANS...",
+  "is_baseline": true
+}
+```
+
+**Response Payload:**
+```json
+{
+  "answer": "The cardiac silhouette is within normal limits. There is no evidence of cardiomegaly or active pulmonary congestion/edema.",
+  "latency_ms": 320
+}
+```
